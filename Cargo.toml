@@ -24,7 +24,12 @@ esp-idf-sys = { version = "0.32.1", features = ["binstart"] }
 esp-idf-svc = "0.45.0"
 esp-idf-hal = "0.40.1"
 embedded-svc = "0.24"
-embedded-hal = "0.2"
+# embedded-hal = "0.2.7"
+embedded-hal = { version = "0.2.7", package="embedded-hal"  }
+display-interface-parallel-gpio = "0.6.0"
+embedded-graphics-sparklines = "0.1.0"
+rand = "0.8.5"
+
 embedded-graphics = "0.7"
 display-interface = "0.4"
 display-interface-spi = "0.4"
