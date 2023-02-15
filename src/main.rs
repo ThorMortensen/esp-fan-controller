@@ -2,6 +2,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use anyhow::bail;
+use display::OutputBusPins8Bit;
 use display_interface_parallel_gpio::Generic8BitBus;
 use display_interface_parallel_gpio::PGPIO8BitInterface;
 use display_interface_spi::SPIInterfaceNoCS;
@@ -92,71 +93,28 @@ fn main() {
     let mut p1 = gpio::PinDriver::output(pins.gpio1).unwrap();
     let button = gpio::PinDriver::input(pins.gpio14).unwrap();
 
-    // let busPins = gpio::Pins::new(pins::gpio39);
-    let mut backlight = gpio::PinDriver::output(pins.gpio38).unwrap();
-    let mut power = gpio::PinDriver::output(pins.gpio15).unwrap();
-    let rst = gpio::PinDriver::output(pins.gpio5).unwrap(); // #define PIN_LCD_RES 5
-    let cs = gpio::PinDriver::output(pins.gpio6).unwrap(); // #define PIN_LCD_CS 6
-    let rd = gpio::PinDriver::output(pins.gpio9).unwrap(); // #define PIN_LCD_RD 9
-    let dc = gpio::PinDriver::output(pins.gpio7).unwrap(); // #define PIN_LCD_DC 7
-    let wr = gpio::PinDriver::output(pins.gpio8).unwrap(); // #define PIN_LCD_WR 8
-
-    let d0 = gpio::PinDriver::output(pins.gpio39).unwrap();
-    let d1 = gpio::PinDriver::output(pins.gpio40).unwrap();
-    let d2 = gpio::PinDriver::output(pins.gpio41).unwrap();
-    let d3 = gpio::PinDriver::output(pins.gpio42).unwrap();
-    let d4 = gpio::PinDriver::output(pins.gpio45).unwrap();
-    let d5 = gpio::PinDriver::output(pins.gpio46).unwrap();
-    let d6 = gpio::PinDriver::output(pins.gpio47).unwrap();
-    let d7 = gpio::PinDriver::output(pins.gpio48).unwrap();
-
-    let mut display1 = display::TDisplayS3::new(
-        power,
-        backlight,
-        cs,
-        rd,
-        dc,
-        wr,
-        rst,
-        [d0, d1, d2, d3, d4, d5, d6, d7],
+    let mut display = display::TDisplayS3::new(
+        pins.gpio15.into(),
+        pins.gpio38.into(),
+        pins.gpio6.into(), // #define PIN_LCD_CS 6
+        pins.gpio9.into(), // #define PIN_LCD_RD 9
+        pins.gpio7.into(), // #define PIN_LCD_DC 7
+        pins.gpio8.into(), // #define PIN_LCD_WR 8
+        pins.gpio5.into(),  // #define PIN_LCD_RES 5
+        OutputBusPins8Bit {
+            d0: pins.gpio39.into(),// #define PIN_LCD_D0 39
+            d1: pins.gpio40.into(),// #define PIN_LCD_D1 40
+            d2: pins.gpio41.into(),// #define PIN_LCD_D2 41
+            d3: pins.gpio42.into(),// #define PIN_LCD_D3 42
+            d4: pins.gpio45.into(),// #define PIN_LCD_D4 45
+            d5: pins.gpio46.into(),// #define PIN_LCD_D5 46
+            d6: pins.gpio47.into(),// #define PIN_LCD_D6 47
+            d7: pins.gpio48.into(),// #define PIN_LCD_D7 48
+        },
     );
 
-    // sleep(Duration::from_secs(2));
-    // info!("After pins are set");
+    display.clear(RgbColor::YELLOW);
 
-    // let mut display = mipidsi::Builder::st7789(di)
-    //     // .with_display_size(LCD_WIDTH, LCD_HIGHT)
-    //     .init(&mut delay::Ets, Some(rst))
-    //     .map_err(|e| anyhow::anyhow!("Display error: {:?}", e))
-    //     .unwrap();
-
-    // display.clear(RgbColor::BLACK).unwrap();
-    // display.set_orientation(mipidsi::Orientation::Landscape(true)).unwrap();
-    // if let Err(e) = display
-    //     .set_pixel(100, 100, RgbColor::WHITE)
-    //     .map_err(|e| anyhow::anyhow!("Display error: {:?}", e))
-    // {
-    //     dbg!(e);
-    // }
-    // led_draw(&mut display).map_err(|e| anyhow::anyhow!("Led draw error: {:?}", e));
-
-    // esp32s3_usb_otg_hello_world(
-    //     // pins.gpio9,
-    //     // pins.gpio4,
-    //     // pins.gpio8,
-    //     // peripherals.spi3,
-    //     // pins.gpio6,
-    //     // pins.gpio7,
-    //     // pins.gpio5,
-    //     pins.gpio38,
-    //     pins.gpio7,
-    //     pins.gpio5,
-    //     peripherals.spi3,
-    //     pins.gpio17,
-    //     pins.gpio8,
-    //     pins.gpio6,
-    //     pins.gpio9,
-    // )    .unwrap();
 
     // let bbox = Rectangle::new(Point::new(0, 26), Size::new(240, 90));
     // let draw_fn = |lastp, p| Line::new(lastp, p);

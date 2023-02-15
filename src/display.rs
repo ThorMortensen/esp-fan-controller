@@ -5,6 +5,8 @@ use display_interface_parallel_gpio::PGPIO8BitInterface;
 use embedded_graphics::mono_font::ascii::FONT_10X20;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::pixelcolor::BinaryColor;
+use embedded_graphics::pixelcolor::Rgb555;
+use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::Dimensions;
 use embedded_graphics::prelude::DrawTarget;
 use embedded_graphics::prelude::Point;
@@ -19,7 +21,10 @@ use embedded_graphics::Drawable;
 use embedded_graphics_sparklines::Sparkline;
 use embedded_hal::digital::v2::OutputPin;
 use esp_idf_hal::delay;
+use esp_idf_hal::gpio;
+use esp_idf_hal::gpio::AnyOutputPin;
 use esp_idf_hal::gpio::Output;
+use esp_idf_hal::gpio::PinDriver;
 use mipidsi::models::Model;
 use mipidsi::models::ST7789;
 use mipidsi::Display;
@@ -35,72 +40,98 @@ use mipidsi::Display;
 // >;
 
 // #[derive(Debug)]
-pub struct TDisplayS3<PinOut>
-where
-    <PinOut as embedded_hal::digital::v2::OutputPin>::Error: std::fmt::Debug,
-    PinOut: OutputPin,
-{
+pub struct TDisplayS3 {
     display: Display<
         PGPIO8BitInterface<
-            Generic8BitBus<PinOut, PinOut, PinOut, PinOut, PinOut, PinOut, PinOut, PinOut>,
-            PinOut,
-            PinOut,
+            Generic8BitBus<
+                PinDriver<'static, AnyOutputPin, Output>,
+                PinDriver<'static, AnyOutputPin, Output>,
+                PinDriver<'static, AnyOutputPin, Output>,
+                PinDriver<'static, AnyOutputPin, Output>,
+                PinDriver<'static, AnyOutputPin, Output>,
+                PinDriver<'static, AnyOutputPin, Output>,
+                PinDriver<'static, AnyOutputPin, Output>,
+                PinDriver<'static, AnyOutputPin, Output>,
+            >,
+            PinDriver<'static, AnyOutputPin, Output>,
+            PinDriver<'static, AnyOutputPin, Output>,
         >,
         ST7789,
-        PinOut,
+        PinDriver<'static, AnyOutputPin, Output>,
     >,
-    power: Output,
-    backlight: PinOut,
-    cs: PinOut,
-    rd: PinOut,
+    power: PinDriver<'static, AnyOutputPin, Output>,
+    backlight: PinDriver<'static, AnyOutputPin, Output>,
+    cs: PinDriver<'static, AnyOutputPin, Output>,
+    rd: PinDriver<'static, AnyOutputPin, Output>,
 }
 
-impl<PinOut> TDisplayS3<PinOut>
-where
-    <PinOut as embedded_hal::digital::v2::OutputPin>::Error: std::fmt::Debug,
-    PinOut: OutputPin + Copy,
-{
-    pub fn new(
-        mut power: Output,
-        mut backlight: PinOut,
-        mut cs: PinOut,
-        mut rd: PinOut,
-        dc: PinOut,
-        wr: PinOut,
-        rst: PinOut,
-        data_bus: [PinOut; 8],
-    ) -> Self {
-        power.set_high().unwrap();
-        backlight.set_high().unwrap();
-        cs.set_low().unwrap();
-        rd.set_high().unwrap();
+pub struct OutputBusPins8Bit{
+   pub d0: gpio::AnyOutputPin,
+   pub d1: gpio::AnyOutputPin,
+   pub d2: gpio::AnyOutputPin,
+   pub d3: gpio::AnyOutputPin,
+   pub d4: gpio::AnyOutputPin,
+   pub d5: gpio::AnyOutputPin,
+   pub d6: gpio::AnyOutputPin,
+   pub d7: gpio::AnyOutputPin,
+}
 
+impl TDisplayS3 {
+    pub fn new(
+        power: gpio::AnyOutputPin,
+        backlight: gpio::AnyOutputPin,
+        cs: gpio::AnyOutputPin,
+        rd: gpio::AnyOutputPin,
+        dc: gpio::AnyOutputPin,
+        wr: gpio::AnyOutputPin,
+        rst: gpio::AnyOutputPin,
+        data_bus: OutputBusPins8Bit,
+    ) -> Self {
         let bus = Generic8BitBus::new((
-            data_bus[0], data_bus[1], data_bus[2], data_bus[3], data_bus[4], data_bus[5], data_bus[6],
-            data_bus[7],
+            gpio::PinDriver::output(data_bus.d0).unwrap(),
+            gpio::PinDriver::output(data_bus.d1).unwrap(),
+            gpio::PinDriver::output(data_bus.d2).unwrap(),
+            gpio::PinDriver::output(data_bus.d3).unwrap(),
+            gpio::PinDriver::output(data_bus.d4).unwrap(),
+            gpio::PinDriver::output(data_bus.d5).unwrap(),
+            gpio::PinDriver::output(data_bus.d6).unwrap(),
+            gpio::PinDriver::output(data_bus.d7).unwrap(),
         ))
         .unwrap();
-        let di = PGPIO8BitInterface::new(bus, dc, wr);
+
+        let di = PGPIO8BitInterface::new(
+            bus,
+            gpio::PinDriver::output(dc).unwrap(),
+            gpio::PinDriver::output(wr).unwrap(),
+        );
+
+        let mut cs = gpio::PinDriver::output(cs).unwrap();
+        let mut rd = gpio::PinDriver::output(rd).unwrap();
+
+        rd.set_high().unwrap();
+        cs.set_low().unwrap();
 
         let mut display = mipidsi::Builder::st7789(di)
             // .with_display_size(LCD_WIDTH, LCD_HIGHT)
-            .init(&mut delay::Ets, Some(rst))
+            .init(&mut delay::Ets, Some(gpio::PinDriver::output(rst).unwrap()))
             .unwrap();
+
 
         display
             .set_orientation(mipidsi::Orientation::Landscape(true))
             .unwrap();
 
+
         TDisplayS3 {
             display,
-            power,
-            backlight,
+            power: gpio::PinDriver::output(power).unwrap(),
+            backlight: gpio::PinDriver::output(backlight).unwrap(),
             cs,
             rd,
         }
     }
 
-    pub fn clear(&mut self) {
-        self.display.clear(RgbColor::BLACK).unwrap();
+    pub fn clear(&mut self, color:Rgb565) {
+        self.display.clear(color).unwrap();
     }
 }
