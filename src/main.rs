@@ -1,6 +1,7 @@
 use std::thread::sleep;
 use std::time::Duration;
 
+use anyhow::bail;
 use display_interface_parallel_gpio::Generic8BitBus;
 use display_interface_parallel_gpio::PGPIO8BitInterface;
 use display_interface_spi::SPIInterfaceNoCS;
@@ -22,13 +23,12 @@ use embedded_graphics_sparklines::Sparkline;
 use embedded_hal::digital::v2::OutputPin;
 use esp_idf_hal::delay;
 use esp_idf_hal::gpio;
+use esp_idf_hal::gpio::AnyOutputPin;
 use esp_idf_hal::gpio::Output;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi;
 use esp_idf_svc::log;
 use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-
-use anyhow::bail;
 
 // use embedded_svc::mqtt::client::utils::ConnState;
 
@@ -36,12 +36,11 @@ use ::log::info;
 use mipidsi::Display;
 use rand::Rng;
 use url;
+pub mod display;
 
 #[allow(dead_code)]
-#[cfg(not(feature = "qemu"))]
 const SSID: &str = env!("RUST_ESP32_STD_DEMO_WIFI_SSID");
 #[allow(dead_code)]
-#[cfg(not(feature = "qemu"))]
 const PASS: &str = env!("RUST_ESP32_STD_DEMO_WIFI_PASS");
 
 const LCD_WIDTH: u16 = 170; // width
@@ -90,19 +89,17 @@ fn main() {
     let peripherals = Peripherals::take().unwrap();
     let pins = peripherals.pins;
 
-    // dbg!("Hello, world!");
     let mut p1 = gpio::PinDriver::output(pins.gpio1).unwrap();
     let button = gpio::PinDriver::input(pins.gpio14).unwrap();
 
     // let busPins = gpio::Pins::new(pins::gpio39);
     let mut backlight = gpio::PinDriver::output(pins.gpio38).unwrap();
     let mut power = gpio::PinDriver::output(pins.gpio15).unwrap();
-    let rst = gpio::PinDriver::output(pins.gpio5).unwrap(); // #define PIN_LCD_RES 5 
-    let mut cs = gpio::PinDriver::output(pins.gpio6).unwrap(); // #define PIN_LCD_CS 6
-    let mut rd  = gpio::PinDriver::output(pins.gpio9).unwrap();  // #define PIN_LCD_RD 9
+    let rst = gpio::PinDriver::output(pins.gpio5).unwrap(); // #define PIN_LCD_RES 5
+    let cs = gpio::PinDriver::output(pins.gpio6).unwrap(); // #define PIN_LCD_CS 6
+    let rd = gpio::PinDriver::output(pins.gpio9).unwrap(); // #define PIN_LCD_RD 9
     let dc = gpio::PinDriver::output(pins.gpio7).unwrap(); // #define PIN_LCD_DC 7
     let wr = gpio::PinDriver::output(pins.gpio8).unwrap(); // #define PIN_LCD_WR 8
-
 
     let d0 = gpio::PinDriver::output(pins.gpio39).unwrap();
     let d1 = gpio::PinDriver::output(pins.gpio40).unwrap();
@@ -113,32 +110,35 @@ fn main() {
     let d6 = gpio::PinDriver::output(pins.gpio47).unwrap();
     let d7 = gpio::PinDriver::output(pins.gpio48).unwrap();
 
-    let bus = Generic8BitBus::new((d0, d1, d2, d3, d4, d5, d6, d7)).unwrap();
-    let di = PGPIO8BitInterface::new(bus, dc, wr);
-
-    power.set_high().unwrap();
-    backlight.set_high().unwrap();
-    cs.set_low().unwrap();
-    rd.set_high().unwrap();
+    let mut display1 = display::TDisplayS3::new(
+        power,
+        backlight,
+        cs,
+        rd,
+        dc,
+        wr,
+        rst,
+        [d0, d1, d2, d3, d4, d5, d6, d7],
+    );
 
     // sleep(Duration::from_secs(2));
     // info!("After pins are set");
 
-    let mut display = mipidsi::Builder::st7789(di)
-        // .with_display_size(LCD_WIDTH, LCD_HIGHT)
-        .init(&mut delay::Ets, Some(rst))
-        .map_err(|e| anyhow::anyhow!("Display error: {:?}", e))
-        .unwrap();
+    // let mut display = mipidsi::Builder::st7789(di)
+    //     // .with_display_size(LCD_WIDTH, LCD_HIGHT)
+    //     .init(&mut delay::Ets, Some(rst))
+    //     .map_err(|e| anyhow::anyhow!("Display error: {:?}", e))
+    //     .unwrap();
 
-    display.clear(RgbColor::BLACK).unwrap();
-    display.set_orientation(mipidsi::Orientation::Landscape(true)).unwrap();
+    // display.clear(RgbColor::BLACK).unwrap();
+    // display.set_orientation(mipidsi::Orientation::Landscape(true)).unwrap();
     // if let Err(e) = display
     //     .set_pixel(100, 100, RgbColor::WHITE)
     //     .map_err(|e| anyhow::anyhow!("Display error: {:?}", e))
     // {
     //     dbg!(e);
     // }
-    led_draw(&mut display).map_err(|e| anyhow::anyhow!("Led draw error: {:?}", e));
+    // led_draw(&mut display).map_err(|e| anyhow::anyhow!("Led draw error: {:?}", e));
 
     // esp32s3_usb_otg_hello_world(
     //     // pins.gpio9,
@@ -158,33 +158,24 @@ fn main() {
     //     pins.gpio9,
     // )    .unwrap();
 
+    // let bbox = Rectangle::new(Point::new(0, 26), Size::new(240, 90));
+    // let draw_fn = |lastp, p| Line::new(lastp, p);
 
+    // // create sparkline object
+    // let mut sparkline = Sparkline::new(
+    //     bbox, // position and size of the sparkline
+    //     32,   // max samples to store in memory (and display on graph)
+    //     RgbColor::RED,
+    //     1, // stroke size
+    //     draw_fn,
+    // );
 
+    // loop {
+    //   let val = rand::thread_rng().gen_range(0..100);
+    //   sparkline.add(val);
+    //   sparkline.draw(&mut display).unwrap();
 
-    let bbox = Rectangle::new(Point::new(0, 26), Size::new(240, 90));
-    let draw_fn = |lastp, p| Line::new(lastp, p);
-    
-    // create sparkline object
-    let mut sparkline = Sparkline::new(
-        bbox, // position and size of the sparkline
-        32,   // max samples to store in memory (and display on graph)
-        RgbColor::RED,
-        1, // stroke size
-        draw_fn,
-    );
-    
-
-    
-    loop {
-      let val = rand::thread_rng().gen_range(0..100);
-      sparkline.add(val);
-      sparkline.draw(&mut display).unwrap();
-      
-      bbox.
-      sleep( Duration::from_millis(100));
-    }
-
-
+    // }
 }
 
 #[allow(unused)]
@@ -285,14 +276,13 @@ where
     )
     .draw(display)?;
 
-
     Text::new(
         "This is the corner",
-        Point::new(0,  10),
+        Point::new(0, 10),
         MonoTextStyle::new(&FONT_10X20, RgbColor::WHITE),
     )
     .draw(display)?;
-    
+
     info!("LED rendering done");
 
     Ok(())
