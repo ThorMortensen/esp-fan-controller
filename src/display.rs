@@ -1,3 +1,6 @@
+use std::collections::VecDeque;
+use std::str::FromStr;
+
 use display_interface_parallel_gpio::Generic8BitBus;
 use display_interface_parallel_gpio::PGPIO8BitInterface;
 use embedded_graphics::geometry::AnchorPoint;
@@ -35,6 +38,8 @@ use esp_idf_hal::gpio::PinDriver;
 use log::info;
 use mipidsi::models::ST7789;
 use mipidsi::Display;
+use ringbuf::HeapRb;
+use ringbuf::Rb;
 
 const LCD_WIDTH: u16 = 170; // width
 const LCD_HIGHT: u16 = 320; // height
@@ -70,7 +75,6 @@ type DisplayI8080St7789 = Display<
 >;
 
 type ColType = Rgb565;
-#[allow(dead_code)]
 pub struct TDisplayS3 {
     screen: DisplayI8080St7789,
     power: PinDriver<'static, AnyOutputPin, Output>,
@@ -166,6 +170,10 @@ impl<'a> TDisplayS3Graphics<'a> {
         txb.text_box.draw(&mut self.display.screen).unwrap();
     }
 }
+
+// trait BufferedTextPrinter{
+//     // fn
+// }
 
 pub struct FramedTextBox<'a> {
     frame: Styled<Rectangle, PrimitiveStyle<Rgb565>>,
@@ -310,5 +318,70 @@ impl FramedTextBoxBuilder {
             frame: self.frame.into_styled(frame_style),
             text_box,
         }
+    }
+}
+
+pub struct TextBoxPrinter<'a> {
+    output: &'a mut TDisplayS3Graphics<'a>,
+    txt_field: &'a mut FramedTextBox<'a>,
+    str_buf: HeapRb<String>,
+    limit_found: bool,
+    line_length: usize,
+    lines: usize,
+    disp_str: String,
+}
+
+impl<'a> TextBoxPrinter<'a> {
+    pub fn new(
+        screen: &'a mut TDisplayS3Graphics<'a>,
+        txt_field: &'a mut FramedTextBox<'a>,
+    ) -> Self {
+        let char_width = txt_field.text_box.character_style.font.character_size.width
+            + txt_field.text_box.character_style.font.character_spacing;
+        let char_hight = txt_field
+            .text_box
+            .character_style
+            .font
+            .character_size
+            .height
+            + txt_field.text_box.style.paragraph_spacing;
+        let bounds = txt_field.text_box.bounding_box();
+        let line_length = (bounds.size.width / char_width) as usize;
+        let lines = (bounds.size.height / char_hight) as usize;
+
+        TextBoxPrinter {
+            output: screen,
+            txt_field,
+            str_buf: HeapRb::<String>::new(lines as usize),
+            limit_found: false,
+            line_length,
+            lines,
+            disp_str: String::new()
+        }
+    }
+
+    pub fn txt(&mut self, str: String) {
+        let len = str.len();
+        self.disp_str = "> ".to_owned() + &str;
+        self.str_buf.push_overwrite(str);
+        let mut line_budget = self.lines - (len / self.line_length) + 1;
+
+        for s in self.str_buf.iter().rev() {
+            if line_budget <= 0 {
+                break;
+            };
+            self.disp_str.push_str(&("> ".to_owned() + s));
+            self.disp_str.push('\n');
+            line_budget -= (s.len() / self.line_length) + 1;
+            if line_budget <= 0 {
+                break;
+            };
+        }
+        self.flush();
+    }
+
+    pub fn flush(&mut self){
+        self.txt_field.text_box.text = &self.disp_str;
+        &self.output.display.screen;
     }
 }

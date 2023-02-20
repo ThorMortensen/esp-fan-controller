@@ -1,9 +1,7 @@
-use display::FramedTextBoxAnchor;
-use display::FramedTextBoxBuilder;
-use display::OutputBusPins8Bit;
-use display::TDisplayS3Graphics;
-use display::SCREEN_BOUNDS;
-use display::SCREEN_WIDTH;
+use std::thread::sleep;
+use std::time::Duration;
+
+use display::*;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::Point;
 use embedded_graphics::prelude::RgbColor;
@@ -12,6 +10,9 @@ use embedded_graphics::primitives::Rectangle;
 use embedded_text::alignment::HorizontalAlignment;
 use embedded_text::alignment::VerticalAlignment;
 use esp_idf_hal::gpio;
+
+#[macro_use]
+extern crate derive_builder;
 
 use esp_idf_hal::prelude::*;
 
@@ -82,10 +83,7 @@ fn main() {
     .build();
 
     let mut small_box =
-        FramedTextBoxBuilder::copy_relative_to(&num_box, FramedTextBoxAnchor::Down, 2)
-            .bg_color(RgbColor::MAGENTA)
-            .txt_color(RgbColor::BLACK)
-            .build();
+        FramedTextBoxBuilder::copy_relative_to(&num_box, FramedTextBoxAnchor::Down, 2).build();
 
     let mut medium_box = FramedTextBoxBuilder::new_relative_to(
         &small_box,
@@ -98,19 +96,23 @@ fn main() {
     .alignment(HorizontalAlignment::Center)
     .build();
 
-    screen.txt(
-        "This is a multiline string\n--> This is line 2",
-        &mut log_box,
-    );
-    screen.txt("42", &mut num_box);
-    screen.txt("small2", &mut small_box);
-    screen.txt("Clock:\n12:42", &mut medium_box);
+    let mut log_field = TextBoxPrinter::new(&mut screen, &mut log_box);
 
-    // loop {
-    // let r = rng.gen_range(1..120);
-    // let g = rng.gen_range(1..120);
-    // let b = rng.gen_range(1..120);
-    // display.clear(Rgb565::new(r, g, b).into());
-    // sleep(Duration::from_millis(1000));
-    // }
+    // screen.txt(
+    //     "012345678901234567890123456789\n--> This is line 2",
+    //     &mut log_box,
+    // );
+    // screen.txt("42", &mut num_box);
+    // screen.txt("small2", &mut small_box);
+    // screen.txt("Clock:\n12:42", &mut medium_box);
+
+    loop {
+        // let r = rng.gen_range(1..120);
+        // let g = rng.gen_range(1..120);
+        // let b = rng.gen_range(1..120);
+        // display.clear(Rgb565::new(r, g, b).into());
+        log_field.txt("Line 1".to_owned());
+
+        sleep(Duration::from_millis(1000));
+    }
 }
