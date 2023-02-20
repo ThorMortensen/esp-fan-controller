@@ -10,6 +10,7 @@ use embedded_graphics::prelude::RgbColor;
 use embedded_graphics::prelude::Size;
 use embedded_graphics::primitives::Rectangle;
 use embedded_text::alignment::HorizontalAlignment;
+use embedded_text::alignment::VerticalAlignment;
 use esp_idf_hal::gpio;
 
 use esp_idf_hal::prelude::*;
@@ -77,6 +78,7 @@ fn main() {
         Size::new(SCREEN_WIDTH - 200 - 2, (display::SCREEN_HIGHT / 5) - 2),
     )
     .alignment(HorizontalAlignment::Center)
+    .alignment_vertical(VerticalAlignment::Middle)
     .build();
 
     let mut small_box =
@@ -89,9 +91,10 @@ fn main() {
         &small_box,
         FramedTextBoxAnchor::Down,
         2,
-        Size::new(SCREEN_WIDTH - 200 - 2, ((display::SCREEN_HIGHT / 5) * 3)),
+        Size::new(SCREEN_WIDTH - 200 - 2, (display::SCREEN_HIGHT / 5) * 3),
     )
     .frame_color(RgbColor::GREEN)
+    .alignment_vertical(VerticalAlignment::Middle)
     .alignment(HorizontalAlignment::Center)
     .build();
 

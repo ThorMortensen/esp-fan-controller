@@ -21,6 +21,7 @@ use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 // use embedded_graphics::Drawable;
 use embedded_text::alignment::HorizontalAlignment;
+use embedded_text::alignment::VerticalAlignment;
 use embedded_text::plugin::NoPlugin;
 use embedded_text::style::HeightMode;
 use embedded_text::style::TextBoxStyle;
@@ -185,6 +186,7 @@ pub struct FramedTextBoxBuilder {
     txt_color: ColType,
     bg_color: ColType,
     alignment: HorizontalAlignment,
+    alignment_vertical: VerticalAlignment,
 }
 
 impl FramedTextBoxBuilder {
@@ -196,8 +198,18 @@ impl FramedTextBoxBuilder {
             txt_color: RgbColor::WHITE,
             bg_color: RgbColor::BLACK,
             alignment: HorizontalAlignment::Left,
+            alignment_vertical: VerticalAlignment::Top,
         }
     }
+
+    pub fn alignment_vertical(
+        mut self,
+        alignment_vertical: VerticalAlignment,
+    ) -> FramedTextBoxBuilder {
+        self.alignment_vertical = alignment_vertical;
+        self
+    }
+
     pub fn alignment(mut self, alignment: HorizontalAlignment) -> FramedTextBoxBuilder {
         self.alignment = alignment;
         self
@@ -272,6 +284,7 @@ impl FramedTextBoxBuilder {
         let textbox_style = TextBoxStyleBuilder::new()
             // .height_mode(HeightMode::FitToText)
             .alignment(self.alignment)
+            .vertical_alignment(self.alignment_vertical)
             .paragraph_spacing(6)
             .build();
 
