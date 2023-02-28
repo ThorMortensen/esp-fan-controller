@@ -76,7 +76,7 @@ type DisplayI8080St7789 = Display<
 
 type ColType = Rgb565;
 pub struct TDisplayS3 {
-    screen: DisplayI8080St7789,
+    pub screen: DisplayI8080St7789,
     power: PinDriver<'static, AnyOutputPin, Output>,
     backlight: PinDriver<'static, AnyOutputPin, Output>,
     cs: PinDriver<'static, AnyOutputPin, Output>,
@@ -152,32 +152,32 @@ impl TDisplayS3 {
     // }
 }
 
-pub struct TDisplayS3Graphics<'a> {
-    display: &'a mut TDisplayS3,
-    // log: VecDeque<&'a str>,
-}
+// pub struct LayoutManager {
+//     display: TDisplayS3,
+//     // log: VecDeque<&'a str>,
+// }
 
-impl<'a> TDisplayS3Graphics<'a> {
-    pub fn new(display: &'a mut TDisplayS3) -> Self {
-        TDisplayS3Graphics {
-            display, // log: VecDeque::new(),
-        }
-    }
+// impl LayoutManager {
+//     pub fn new(display: &'a mut TDisplayS3) -> Self {
+//         LayoutManager {
+//             display, // log: VecDeque::new(),
+//         }
+//     }
 
-    pub fn txt<'b>(&mut self, txt: &'b str, txb: &'b mut FramedTextBox<'b>) {
-        txb.frame.draw(&mut self.display.screen).unwrap();
-        txb.text_box.text = txt;
-        txb.text_box.draw(&mut self.display.screen).unwrap();
-    }
-}
+//     pub fn (&mut self, txt: &'b str, txb: &'b mut FramedTextBox<'b>) {
+//         txb.frame.draw(&mut self.display.screen).unwrap();
+//         txb.text_box.text = txt;
+//         txb.text_box.draw(&mut self.display.screen).unwrap();
+//     }
+// }
 
 // trait BufferedTextPrinter{
 //     // fn
 // }
 
 pub struct FramedTextBox<'a> {
-    frame: Styled<Rectangle, PrimitiveStyle<Rgb565>>,
-    text_box: TextBox<'a, MonoTextStyle<'a, Rgb565>, NoPlugin<Rgb565>>,
+    pub frame: Styled<Rectangle, PrimitiveStyle<Rgb565>>,
+    pub text_box: TextBox<'a, MonoTextStyle<'a, Rgb565>, NoPlugin<Rgb565>>,
 }
 
 pub enum FramedTextBoxAnchor {
@@ -211,33 +211,33 @@ impl FramedTextBoxBuilder {
     }
 
     pub fn alignment_vertical(
-        mut self,
+        &mut self,
         alignment_vertical: VerticalAlignment,
-    ) -> FramedTextBoxBuilder {
+    ) -> &mut FramedTextBoxBuilder {
         self.alignment_vertical = alignment_vertical;
         self
     }
 
-    pub fn alignment(mut self, alignment: HorizontalAlignment) -> FramedTextBoxBuilder {
+    pub fn alignment(&mut self, alignment: HorizontalAlignment) -> &mut FramedTextBoxBuilder {
         self.alignment = alignment;
         self
     }
-    pub fn frame_spacing(mut self, frame_spacing: u32) -> FramedTextBoxBuilder {
+    pub fn frame_spacing(&mut self, frame_spacing: u32) -> &mut FramedTextBoxBuilder {
         self.frame_thickness = frame_spacing;
         self
     }
 
-    pub fn frame_color(mut self, frame_color: ColType) -> FramedTextBoxBuilder {
+    pub fn frame_color(&mut self, frame_color: ColType) -> &mut FramedTextBoxBuilder {
         self.frame_color = frame_color;
         self
     }
 
-    pub fn txt_color(mut self, txt_color: ColType) -> FramedTextBoxBuilder {
+    pub fn txt_color(&mut self, txt_color: ColType) -> &mut FramedTextBoxBuilder {
         self.txt_color = txt_color;
         self
     }
 
-    pub fn bg_color(mut self, bg_color: ColType) -> FramedTextBoxBuilder {
+    pub fn bg_color(&mut self, bg_color: ColType) -> &mut FramedTextBoxBuilder {
         self.bg_color = bg_color;
         self
     }
@@ -285,7 +285,7 @@ impl FramedTextBoxBuilder {
         FramedTextBoxBuilder::new(frame)
     }
 
-    pub fn build<'a>(self) -> FramedTextBox<'a> {
+    pub fn build(self) -> FramedTextBox<'static> {
         let character_style: MonoTextStyle<ColType> =
             MonoTextStyle::new(&FONT_10X20, self.txt_color);
 
@@ -322,20 +322,15 @@ impl FramedTextBoxBuilder {
 }
 
 pub struct TextBoxPrinter<'a> {
-    output: &'a mut TDisplayS3Graphics<'a>,
-    txt_field: &'a mut FramedTextBox<'a>,
+    txt_field: FramedTextBox<'a>,
     str_buf: HeapRb<String>,
-    limit_found: bool,
     line_length: usize,
     lines: usize,
     disp_str: String,
 }
 
 impl<'a> TextBoxPrinter<'a> {
-    pub fn new(
-        screen: &'a mut TDisplayS3Graphics<'a>,
-        txt_field: &'a mut FramedTextBox<'a>,
-    ) -> Self {
+    pub fn new(txt_field: FramedTextBox<'a>) -> Self {
         let char_width = txt_field.text_box.character_style.font.character_size.width
             + txt_field.text_box.character_style.font.character_spacing;
         let char_hight = txt_field
@@ -350,38 +345,34 @@ impl<'a> TextBoxPrinter<'a> {
         let lines = (bounds.size.height / char_hight) as usize;
 
         TextBoxPrinter {
-            output: screen,
             txt_field,
             str_buf: HeapRb::<String>::new(lines as usize),
-            limit_found: false,
             line_length,
             lines,
-            disp_str: String::new()
+            disp_str: String::new(),
         }
     }
 
-    pub fn txt(&mut self, str: String) {
+    pub fn txt(&mut self, str: &str, disp: &mut TDisplayS3) {
         let len = str.len();
-        self.disp_str = "> ".to_owned() + &str;
-        self.str_buf.push_overwrite(str);
+        let mut disp_str = "> ".to_owned() + &str;
+        self.str_buf.push_overwrite(str.to_string());
         let mut line_budget = self.lines - (len / self.line_length) + 1;
 
         for s in self.str_buf.iter().rev() {
             if line_budget <= 0 {
                 break;
             };
-            self.disp_str.push_str(&("> ".to_owned() + s));
-            self.disp_str.push('\n');
+            disp_str.push_str(&("> ".to_owned() + s));
+            disp_str.push('\n');
             line_budget -= (s.len() / self.line_length) + 1;
             if line_budget <= 0 {
                 break;
             };
         }
-        self.flush();
-    }
-
-    pub fn flush(&mut self){
+        self.disp_str = disp_str.clone();
         self.txt_field.text_box.text = &self.disp_str;
-        &self.output.display.screen;
+        self.txt_field.text_box.draw(&mut disp.screen).unwrap();
+        self.txt_field.frame.draw(&mut disp.screen).unwrap();
     }
 }

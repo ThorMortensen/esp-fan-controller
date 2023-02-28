@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -7,6 +8,7 @@ use embedded_graphics::prelude::Point;
 use embedded_graphics::prelude::RgbColor;
 use embedded_graphics::prelude::Size;
 use embedded_graphics::primitives::Rectangle;
+use embedded_graphics::Drawable;
 use embedded_text::alignment::HorizontalAlignment;
 use embedded_text::alignment::VerticalAlignment;
 use esp_idf_hal::gpio;
@@ -29,6 +31,13 @@ pub mod display;
 const SSID: &str = env!("RUST_ESP32_STD_DEMO_WIFI_SSID");
 #[allow(dead_code)]
 const PASS: &str = env!("RUST_ESP32_STD_DEMO_WIFI_PASS");
+#[macro_use]
+extern crate lazy_static;
+
+// lazy_static! {
+// static ref display: Mutex<TDisplayS3> = Mutex::new();
+
+// }
 
 fn main() {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -44,7 +53,7 @@ fn main() {
     let mut p1 = gpio::PinDriver::output(pins.gpio1).unwrap();
     let button = gpio::PinDriver::input(pins.gpio14).unwrap();
 
-    let mut display = display::TDisplayS3::new(
+    let mut display = TDisplayS3::new(
         pins.gpio15.into(),
         pins.gpio38.into(),
         pins.gpio6.into(), // #define PIN_LCD_CS 6
@@ -63,41 +72,46 @@ fn main() {
             d7: pins.gpio48.into(), // #define PIN_LCD_D7 48
         },
     );
+
     display.clear(RgbColor::BLACK);
 
-    let mut screen = TDisplayS3Graphics::new(&mut display);
-    let mut log_box = FramedTextBoxBuilder::new(Rectangle::new(
+    // let mut screen = LayoutManager::new(&mut display);
+    let mut log_box: FramedTextBox<'_> = FramedTextBoxBuilder::new(Rectangle::new(
         Point::new(0, 0),
         Size::new(200, display::SCREEN_HIGHT),
     ))
     .build();
 
-    let mut num_box = FramedTextBoxBuilder::new_relative_to(
-        &log_box,
-        FramedTextBoxAnchor::Right,
-        2,
-        Size::new(SCREEN_WIDTH - 200 - 2, (display::SCREEN_HIGHT / 5) - 2),
-    )
-    .alignment(HorizontalAlignment::Center)
-    .alignment_vertical(VerticalAlignment::Middle)
-    .build();
+    // let mut num_box = FramedTextBoxBuilder::new_relative_to(
+    //     &log_box,
+    //     FramedTextBoxAnchor::Right,
+    //     2,
+    //     Size::new(SCREEN_WIDTH - 200 - 2, (display::SCREEN_HIGHT / 5) - 2),
+    // )
+    // .alignment(HorizontalAlignment::Center)
+    // .alignment_vertical(VerticalAlignment::Middle);
+    // let num_box = num_box.build();
 
-    let mut small_box =
-        FramedTextBoxBuilder::copy_relative_to(&num_box, FramedTextBoxAnchor::Down, 2).build();
+    // let mut small_box =
+    //     FramedTextBoxBuilder::copy_relative_to(&num_box, FramedTextBoxAnchor::Down, 2).build();
 
-    let mut medium_box = FramedTextBoxBuilder::new_relative_to(
-        &small_box,
-        FramedTextBoxAnchor::Down,
-        2,
-        Size::new(SCREEN_WIDTH - 200 - 2, (display::SCREEN_HIGHT / 5) * 3),
-    )
-    .frame_color(RgbColor::GREEN)
-    .alignment_vertical(VerticalAlignment::Middle)
-    .alignment(HorizontalAlignment::Center)
-    .build();
+    // let mut medium_box = FramedTextBoxBuilder::new_relative_to(
+    //     &small_box,
+    //     FramedTextBoxAnchor::Down,
+    //     2,
+    //     Size::new(SCREEN_WIDTH - 200 - 2, (display::SCREEN_HIGHT / 5) * 3),
+    // )
+    // .frame_color(RgbColor::GREEN)
+    // .alignment_vertical(VerticalAlignment::Middle)
+    // .alignment(HorizontalAlignment::Center)
+    // .build();
 
-    let mut log_field = TextBoxPrinter::new(&mut screen, &mut log_box);
+    let mut log_field:TextBoxPrinter<'static>  = TextBoxPrinter::new(log_box);
+    let str: &str = "foooo"; 
 
+    // log_field.txt("fooo", &mut display);
+
+    //let mut xx = std::sync::Arc::new(log_box);
     // screen.txt(
     //     "012345678901234567890123456789\n--> This is line 2",
     //     &mut log_box,
@@ -106,13 +120,25 @@ fn main() {
     // screen.txt("small2", &mut small_box);
     // screen.txt("Clock:\n12:42", &mut medium_box);
 
-    loop {
-        // let r = rng.gen_range(1..120);
-        // let g = rng.gen_range(1..120);
-        // let b = rng.gen_range(1..120);
-        // display.clear(Rgb565::new(r, g, b).into());
-        log_field.txt("Line 1".to_owned());
+    // let lineCount = 0;
+    // loop {
+    //     // log_box.text_box.text = &str;
+    //     // log_box.text_box.draw(&mut display.screen);
+    //     // log_field.txt(str, &mut log_box, &mut display);
+    // //     // let r = rng.gen_range(1..120);
+    // //     // let g = rng.gen_range(1..120);
+    // //     // let b = rng.gen_range(1..120);
+    // //     // display.clear(Rgb565::new(r, g, b).into());
+    // //     //TextBoxPrinter::txt(&mut log_field, format!("bingo"));
+    // //     // log_field.txt("alsijdsl", &mut display);
+    // //     // log_field.flush(&mut display);
 
-        sleep(Duration::from_millis(1000));
-    }
+    // //     sleep(Duration::from_millis(1000));
+    // }
+}
+
+
+
+fn foo<'a>(t: &'a mut TextBoxPrinter, d: &mut TDisplayS3){
+    t.txt("foooo", d);
 }
