@@ -321,6 +321,12 @@ impl FramedTextBoxBuilder {
     }
 }
 
+// pub struct FramedTextBox<'a> {
+//     pub frame: Styled<Rectangle, PrimitiveStyle<Rgb565>>,
+//     pub text_box: TextBox<'a, MonoTextStyle<'a, Rgb565>, NoPlugin<Rgb565>>,
+// }
+
+
 pub struct TextBoxPrinter<'a> {
     txt_field: FramedTextBox<'a>,
     str_buf: HeapRb<String>,
@@ -353,12 +359,12 @@ impl<'a> TextBoxPrinter<'a> {
         }
     }
 
-    pub fn txt(&mut self, str: &str, disp: &mut TDisplayS3) {
-        let len = str.len();
-        let mut disp_str = "> ".to_owned() + &str;
-        self.str_buf.push_overwrite(str.to_string());
+    pub fn txt(&mut self, input_str: &str, display: &mut TDisplayS3) {
+        let len = input_str.len();
+        let mut disp_str = "> ".to_owned() + input_str;
+        self.str_buf.push_overwrite(input_str.to_string());
         let mut line_budget = self.lines - (len / self.line_length) + 1;
-
+    
         for s in self.str_buf.iter().rev() {
             if line_budget <= 0 {
                 break;
@@ -370,9 +376,11 @@ impl<'a> TextBoxPrinter<'a> {
                 break;
             };
         }
-        self.disp_str = disp_str.clone();
+    
+        self.txt_field.text_box.text = "";
+        self.disp_str = disp_str;
         self.txt_field.text_box.text = &self.disp_str;
-        self.txt_field.text_box.draw(&mut disp.screen).unwrap();
-        self.txt_field.frame.draw(&mut disp.screen).unwrap();
+        self.txt_field.text_box.draw(&mut display.screen).unwrap();
+        self.txt_field.frame.draw(&mut display.screen).unwrap();
     }
 }
