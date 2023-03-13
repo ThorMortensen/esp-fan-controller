@@ -106,14 +106,10 @@ fn main() {
     // .alignment(HorizontalAlignment::Center)
     // .build();
 
-    let mut log_field:TextBoxPrinter = TextBoxPrinter::new(log_box);
-    {
+    let mut log_field: TextBoxPrinter = TextBoxPrinter::new(log_box);
 
-        log_field.txt("fooo", &mut display);
-
-    }
     log_field.txt("fooo", &mut display);
-
+    log_field.txt("fooo", &mut display);
 
     //let mut xx = std::sync::Arc::new(log_box);
     // screen.txt(
@@ -140,8 +136,6 @@ fn main() {
     // //     sleep(Duration::from_millis(1000));
     // }
 }
-
-
 
 // fn foo<'a>(t: &'a mut TextBoxPrinter, d: &mut TDisplayS3){
 //     t.txt("foooo", d);

@@ -285,7 +285,7 @@ impl FramedTextBoxBuilder {
         FramedTextBoxBuilder::new(frame)
     }
 
-    pub fn build(self) -> FramedTextBox<'static> {
+    pub fn build<'a>(self) -> FramedTextBox<'a> {
         let character_style: MonoTextStyle<ColType> =
             MonoTextStyle::new(&FONT_10X20, self.txt_color);
 
@@ -359,7 +359,7 @@ impl<'a> TextBoxPrinter<'a> {
         }
     }
 
-    pub fn txt(&mut self, input_str: &str, display: &mut TDisplayS3) {
+    pub fn txt(mut self, input_str: &str, display: &mut TDisplayS3) {
         let len = input_str.len();
         let mut disp_str = "> ".to_owned() + input_str;
         self.str_buf.push_overwrite(input_str.to_string());
@@ -377,8 +377,8 @@ impl<'a> TextBoxPrinter<'a> {
             };
         }
     
-        self.txt_field.text_box.text = "";
         self.disp_str = disp_str;
+        self.txt_field.text_box.text = "";
         self.txt_field.text_box.text = &self.disp_str;
         self.txt_field.text_box.draw(&mut display.screen).unwrap();
         self.txt_field.frame.draw(&mut display.screen).unwrap();
