@@ -9,8 +9,10 @@ use embedded_graphics::prelude::RgbColor;
 use embedded_graphics::prelude::Size;
 use embedded_graphics::primitives::Rectangle;
 use embedded_graphics::Drawable;
+use embedded_hal::prelude::_embedded_hal_blocking_delay_DelayMs;
 use embedded_text::alignment::HorizontalAlignment;
 use embedded_text::alignment::VerticalAlignment;
+use esp_idf_hal::delay;
 use esp_idf_hal::gpio;
 
 #[macro_use]
@@ -34,19 +36,12 @@ const PASS: &str = env!("RUST_ESP32_STD_DEMO_WIFI_PASS");
 #[macro_use]
 extern crate lazy_static;
 
-// lazy_static! {
-// static ref display: Mutex<TDisplayS3> = Mutex::new();
-
-// }
-
 fn main() {
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_sys::link_patches();
     // Bind the log crate to the ESP Logging facilities
     esp_idf_svc::log::EspLogger::initialize_default();
-    let mut rng = thread_rng();
-
     let peripherals = Peripherals::take().unwrap();
     let pins = peripherals.pins;
 
@@ -72,69 +67,26 @@ fn main() {
             d7: pins.gpio48.into(), // #define PIN_LCD_D7 48
         },
     );
+    display.clear(Rgb565::BLACK);
+    do_stuff(display);
+}
 
-    display.clear(RgbColor::BLACK);
-
+fn do_stuff(mut display: TDisplayS3) {
     // let mut screen = LayoutManager::new(&mut display);
-    let mut log_box: FramedTextBox<'_> = FramedTextBoxBuilder::new(Rectangle::new(
+    let mut log_box: FramedTextBox = FramedTextBoxBuilder::new(Rectangle::new(
         Point::new(0, 0),
         Size::new(200, display::SCREEN_HIGHT),
     ))
     .build();
-
-    // let mut num_box = FramedTextBoxBuilder::new_relative_to(
-    //     &log_box,
-    //     FramedTextBoxAnchor::Right,
-    //     2,
-    //     Size::new(SCREEN_WIDTH - 200 - 2, (display::SCREEN_HIGHT / 5) - 2),
-    // )
-    // .alignment(HorizontalAlignment::Center)
-    // .alignment_vertical(VerticalAlignment::Middle);
-    // let num_box = num_box.build();
-
-    // let mut small_box =
-    //     FramedTextBoxBuilder::copy_relative_to(&num_box, FramedTextBoxAnchor::Down, 2).build();
-
-    // let mut medium_box = FramedTextBoxBuilder::new_relative_to(
-    //     &small_box,
-    //     FramedTextBoxAnchor::Down,
-    //     2,
-    //     Size::new(SCREEN_WIDTH - 200 - 2, (display::SCREEN_HIGHT / 5) * 3),
-    // )
-    // .frame_color(RgbColor::GREEN)
-    // .alignment_vertical(VerticalAlignment::Middle)
-    // .alignment(HorizontalAlignment::Center)
-    // .build();
+    // sleep(Duration::from_millis(1000));
 
     let mut log_field: TextBoxPrinter = TextBoxPrinter::new(log_box);
 
-    log_field.txt("fooo", &mut display);
-    log_field.txt("fooo", &mut display);
-
-    //let mut xx = std::sync::Arc::new(log_box);
-    // screen.txt(
-    //     "012345678901234567890123456789\n--> This is line 2",
-    //     &mut log_box,
-    // );
-    // screen.txt("42", &mut num_box);
-    // screen.txt("small2", &mut small_box);
-    // screen.txt("Clock:\n12:42", &mut medium_box);
-
-    // let lineCount = 0;
-    // loop {
-    //     // log_box.text_box.text = &str;
-    //     // log_box.text_box.draw(&mut display.screen);
-    //     // log_field.txt(str, &mut log_box, &mut display);
-    // //     // let r = rng.gen_range(1..120);
-    // //     // let g = rng.gen_range(1..120);
-    // //     // let b = rng.gen_range(1..120);
-    // //     // display.clear(Rgb565::new(r, g, b).into());
-    // //     //TextBoxPrinter::txt(&mut log_field, format!("bingo"));
-    // //     // log_field.txt("alsijdsl", &mut display);
-    // //     // log_field.flush(&mut display);
-
-    // //     sleep(Duration::from_millis(1000));
-    // }
+    for i in 0..10 {
+        log_field.txt(&format!("line {}", i));
+        log_field.draw(&mut display);
+        sleep(Duration::from_millis(1000));
+    }
 }
 
 // fn foo<'a>(t: &'a mut TextBoxPrinter, d: &mut TDisplayS3){

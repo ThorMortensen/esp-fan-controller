@@ -77,10 +77,10 @@ type DisplayI8080St7789 = Display<
 type ColType = Rgb565;
 pub struct TDisplayS3 {
     pub screen: DisplayI8080St7789,
-    power: PinDriver<'static, AnyOutputPin, Output>,
-    backlight: PinDriver<'static, AnyOutputPin, Output>,
-    cs: PinDriver<'static, AnyOutputPin, Output>,
-    rd: PinDriver<'static, AnyOutputPin, Output>,
+    pub power: PinDriver<'static, AnyOutputPin, Output>,
+    pub backlight: PinDriver<'static, AnyOutputPin, Output>,
+    pub cs: PinDriver<'static, AnyOutputPin, Output>,
+    pub rd: PinDriver<'static, AnyOutputPin, Output>,
 }
 
 pub struct OutputBusPins8Bit {
@@ -105,39 +105,55 @@ impl TDisplayS3 {
         rst: gpio::AnyOutputPin,
         data_bus: OutputBusPins8Bit,
     ) -> Self {
-        let bus = Generic8BitBus::new((
-            gpio::PinDriver::output(data_bus.d0).unwrap(),
-            gpio::PinDriver::output(data_bus.d1).unwrap(),
-            gpio::PinDriver::output(data_bus.d2).unwrap(),
-            gpio::PinDriver::output(data_bus.d3).unwrap(),
-            gpio::PinDriver::output(data_bus.d4).unwrap(),
-            gpio::PinDriver::output(data_bus.d5).unwrap(),
-            gpio::PinDriver::output(data_bus.d6).unwrap(),
-            gpio::PinDriver::output(data_bus.d7).unwrap(),
-        ))
-        .unwrap();
+        let mut d0 = gpio::PinDriver::output(data_bus.d0).unwrap();
+        let mut d1 = gpio::PinDriver::output(data_bus.d1).unwrap();
+        let mut d2 = gpio::PinDriver::output(data_bus.d2).unwrap();
+        let mut d3 = gpio::PinDriver::output(data_bus.d3).unwrap();
+        let mut d4 = gpio::PinDriver::output(data_bus.d4).unwrap();
+        let mut d5 = gpio::PinDriver::output(data_bus.d5).unwrap();
+        let mut d6 = gpio::PinDriver::output(data_bus.d6).unwrap();
+        let mut d7 = gpio::PinDriver::output(data_bus.d7).unwrap();
 
-        let di = PGPIO8BitInterface::new(
-            bus,
-            gpio::PinDriver::output(dc).unwrap(),
-            gpio::PinDriver::output(wr).unwrap(),
-        );
+        let mut dc = gpio::PinDriver::output(dc).unwrap();
+        let mut wr = gpio::PinDriver::output(wr).unwrap();
+
+        d0.set_high().unwrap();
+        d1.set_high().unwrap();
+        d2.set_high().unwrap();
+        d3.set_high().unwrap();
+        d4.set_high().unwrap();
+        d5.set_high().unwrap();
+        d6.set_high().unwrap();
+        d7.set_high().unwrap();
+
+        dc.set_high().unwrap();
+        wr.set_high().unwrap();
+
+        let bus = Generic8BitBus::new((d0, d1, d2, d3, d4, d5, d6, d7)).unwrap();
+
+        let di = PGPIO8BitInterface::new(bus, dc, wr);
 
         let mut cs = gpio::PinDriver::output(cs).unwrap();
         let mut rd = gpio::PinDriver::output(rd).unwrap();
+        let mut power = gpio::PinDriver::output(power).unwrap();
+        let mut backlight = gpio::PinDriver::output(backlight).unwrap();
 
         rd.set_high().unwrap();
         cs.set_low().unwrap();
+        power.set_high().unwrap();
+        backlight.set_high().unwrap();
+
+        let screen = mipidsi::Builder::st7789(di)
+            .with_display_size(LCD_WIDTH, LCD_HIGHT)
+            .with_orientation(mipidsi::Orientation::Landscape(true))
+            .with_window_offset_handler(|_| -> (u16, u16) { (0, 35) })
+            .init(&mut delay::Ets, Some(gpio::PinDriver::output(rst).unwrap()))
+            .unwrap();
 
         TDisplayS3 {
-            screen: mipidsi::Builder::st7789(di)
-                .with_display_size(LCD_WIDTH, LCD_HIGHT)
-                .with_orientation(mipidsi::Orientation::Landscape(true))
-                .with_window_offset_handler(|_| -> (u16, u16) { (0, 35) })
-                .init(&mut delay::Ets, Some(gpio::PinDriver::output(rst).unwrap()))
-                .unwrap(),
-            power: gpio::PinDriver::output(power).unwrap(),
-            backlight: gpio::PinDriver::output(backlight).unwrap(),
+            screen,
+            power,
+            backlight,
             cs,
             rd,
         }
@@ -146,38 +162,21 @@ impl TDisplayS3 {
     pub fn clear(&mut self, color: ColType) {
         self.screen.clear(color).unwrap();
     }
-
-    // pub fn log(logMsg: &str){
-
-    // }
 }
-
-// pub struct LayoutManager {
-//     display: TDisplayS3,
-//     // log: VecDeque<&'a str>,
-// }
-
-// impl LayoutManager {
-//     pub fn new(display: &'a mut TDisplayS3) -> Self {
-//         LayoutManager {
-//             display, // log: VecDeque::new(),
-//         }
-//     }
-
-//     pub fn (&mut self, txt: &'b str, txb: &'b mut FramedTextBox<'b>) {
-//         txb.frame.draw(&mut self.display.screen).unwrap();
-//         txb.text_box.text = txt;
-//         txb.text_box.draw(&mut self.display.screen).unwrap();
-//     }
-// }
-
-// trait BufferedTextPrinter{
-//     // fn
-// }
 
 pub struct FramedTextBox<'a> {
     pub frame: Styled<Rectangle, PrimitiveStyle<Rgb565>>,
     pub text_box: TextBox<'a, MonoTextStyle<'a, Rgb565>, NoPlugin<Rgb565>>,
+    pub disp_str: String,
+}
+
+impl<'a> FramedTextBox<'a> {
+    fn draw_text(&mut self, disp_str: String, display: &mut DisplayI8080St7789) {
+        self.disp_str = disp_str;
+        self.text_box.text = self.disp_str.as_str();
+        self.frame.draw(display).unwrap();
+        self.text_box.draw(display).unwrap();
+    }
 }
 
 pub enum FramedTextBoxAnchor {
@@ -286,7 +285,7 @@ impl FramedTextBoxBuilder {
     }
 
     pub fn build<'a>(self) -> FramedTextBox<'a> {
-        let character_style: MonoTextStyle<ColType> =
+        let character_style: MonoTextStyle<'a, ColType> =
             MonoTextStyle::new(&FONT_10X20, self.txt_color);
 
         let textbox_style = TextBoxStyleBuilder::new()
@@ -312,20 +311,16 @@ impl FramedTextBoxBuilder {
                 self.frame.bounding_box().size.height - (self.frame_thickness * 2),
             ),
         );
-        let text_box = TextBox::with_textbox_style("", text_field, character_style, textbox_style);
+        let disp_str = String::new();
+        let text_box: TextBox<'a, MonoTextStyle<'a, Rgb565>, NoPlugin<Rgb565>> = TextBox::with_textbox_style(&disp_str, text_field, character_style, textbox_style);
 
         FramedTextBox {
             frame: self.frame.into_styled(frame_style),
             text_box,
+            disp_str,
         }
     }
 }
-
-// pub struct FramedTextBox<'a> {
-//     pub frame: Styled<Rectangle, PrimitiveStyle<Rgb565>>,
-//     pub text_box: TextBox<'a, MonoTextStyle<'a, Rgb565>, NoPlugin<Rgb565>>,
-// }
-
 
 pub struct TextBoxPrinter<'a> {
     txt_field: FramedTextBox<'a>,
@@ -349,7 +344,7 @@ impl<'a> TextBoxPrinter<'a> {
         let bounds = txt_field.text_box.bounding_box();
         let line_length = (bounds.size.width / char_width) as usize;
         let lines = (bounds.size.height / char_hight) as usize;
-
+        dbg!(lines);
         TextBoxPrinter {
             txt_field,
             str_buf: HeapRb::<String>::new(lines as usize),
@@ -359,28 +354,60 @@ impl<'a> TextBoxPrinter<'a> {
         }
     }
 
-    pub fn txt(mut self, input_str: &str, display: &mut TDisplayS3) {
+    pub fn txt(&mut self, input_str: &str) {
         let len = input_str.len();
-        let mut disp_str = "> ".to_owned() + input_str;
-        self.str_buf.push_overwrite(input_str.to_string());
+        let mut disp_str = "> ".to_owned();
+        disp_str.push_str(input_str);
+        disp_str.push('\n');
+        dbg!(self.str_buf.len());
+
         let mut line_budget = self.lines - (len / self.line_length) + 1;
-    
+
         for s in self.str_buf.iter().rev() {
             if line_budget <= 0 {
                 break;
             };
-            disp_str.push_str(&("> ".to_owned() + s));
-            disp_str.push('\n');
+
+            let mut line = String::with_capacity(s.len() + 3);
+            line.push_str("> ");
+            line.push_str(s);
+            line.push('\n');
+            disp_str.push_str(&line);
             line_budget -= (s.len() / self.line_length) + 1;
             if line_budget <= 0 {
                 break;
             };
         }
-    
+        self.str_buf.push_overwrite(input_str.to_string());
+
         self.disp_str = disp_str;
-        self.txt_field.text_box.text = "";
-        self.txt_field.text_box.text = &self.disp_str;
-        self.txt_field.text_box.draw(&mut display.screen).unwrap();
+        dbg!(&self.disp_str);
+    }
+
+    pub fn draw(&mut self, display: &mut TDisplayS3) {
         self.txt_field.frame.draw(&mut display.screen).unwrap();
+        TextBox::with_textbox_style(
+            &self.disp_str,
+            self.txt_field.text_box.bounding_box(),
+            self.txt_field.text_box.character_style,
+            self.txt_field.text_box.style,
+        )
+        .draw(&mut display.screen)
+        .unwrap();
     }
 }
+
+// TextBox::with_textbox_style(
+//     &self.disp_str,
+//     self.txt_field.text_box.bounding_box(),
+//     self.txt_field.text_box.character_style,
+//     self.txt_field.text_box.style,
+// )
+// .draw(&mut display.screen)
+// .unwrap();
+
+// pub fn draw(&mut self, display: &mut TDisplayS3) {
+//     self.txt_field.frame.draw(&mut display.screen).unwrap();
+//     self.txt_field.text_box.text = &self.disp_str;
+//     self.txt_field.text_box.draw(&mut display.screen).unwrap();
+// }
